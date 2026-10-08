@@ -1,0 +1,220 @@
+-- ============================================================
+-- Archivo: 01_crear_tablas.sql
+-- Descripción: Creación de la base de datos y las tablas.
+-- 
+-- NOTA IMPORTANTE:
+-- La tabla stg_Datos NO se crea en este script.
+-- Se generó automáticamente al usar el Asistente para importar
+-- archivos planos de SSMS (Tareas → Importar archivo plano).
+-- Ver el archivo 05_importar_excel.sql para más detalles.
+-- ============================================================
+
+USE master;
+GO
+
+-- Crea la base de datos si no existe
+IF DB_ID('ETL_Encuesta') IS NULL
+    CREATE DATABASE ETL_Encuesta;
+GO
+
+USE ETL_Encuesta;
+GO
+
+-- ============================================================
+-- TABLA 1: Aceptados (registros válidos)
+-- ============================================================
+IF OBJECT_ID('dbo.Aceptados', 'U') IS NOT NULL 
+    DROP TABLE dbo.Aceptados;
+GO
+
+CREATE TABLE Aceptados (
+    SourceRowId       INT PRIMARY KEY,
+    TipoDocumento     VARCHAR(10),
+    NumeroDocumento   VARCHAR(20),
+    NombreCompleto    VARCHAR(200),
+    IngresoMensual    DECIMAL(18,2),
+    GastoMensual      DECIMAL(18,2),
+    BalanceMensual    DECIMAL(18,2)
+);
+GO
+
+-- ============================================================
+-- TABLA 2: Rechazados (registros con errores)
+-- ============================================================
+IF OBJECT_ID('dbo.Rechazados', 'U') IS NOT NULL 
+    DROP TABLE dbo.Rechazados;
+GO
+
+CREATE TABLE Rechazados (
+    SourceRowId  INT,
+    Motivo       VARCHAR(300)
+);
+GO
+
+-- ============================================================
+-- Verificación
+-- ============================================================
+PRINT 'Tablas creadas por este script:';
+SELECT name AS TablasCreadas 
+FROM sys.tables 
+WHERE name IN ('Aceptados', 'Rechazados')
+ORDER BY name;
+GO
+
+PRINT 'Script 01 ejecutado correctamente.';
+PRINT 'Recuerda: stg_Datos se crea al importar el Excel.';
+GO
+
+
+
+
+
+
+
+
+
+-- ============================================================
+-- Archivo: 05_importar_excel.sql
+-- Descripción: Explicación del proceso de importación del 
+--              archivo Excel/CSV hacia la tabla stg_Datos.
+-- 
+-- La tabla stg_Datos NO se crea manualmente con CREATE TABLE.
+-- Se genera automáticamente al usar el Asistente para importar
+-- archivos planos de SSMS.
+-- ============================================================
+
+-- ============================================================
+-- PASO 1: Preparación del archivo fuente
+-- ============================================================
+-- Se parte del archivo original "dataset_encuesta.xlsx".
+-- Se convirtió a CSV en Excel (Archivo → Guardar como → 
+-- "CSV UTF-8 (delimitado por comas)").
+-- Resultado: "dataset_encuesta.csv"
+
+-- ============================================================
+-- PASO 2: Ejecución del asistente en SSMS
+-- ============================================================
+-- 1. Clic derecho en la base de datos ETL_Encuesta.
+-- 2. Tareas → Importar archivo plano...
+-- 3. Seleccionar el archivo CSV.
+-- 4. El asistente crea automáticamente la tabla stg_Datos.
+-- 
+-- El asistente detectó y generó la siguiente estructura:
+
+/*
+CREATE TABLE [dbo].[stg_Datos] (
+    [SourceRowId]      INT              NULL,
+    [TipoDocumento]    NVARCHAR(50)     NULL,
+    [NumeroDocumento]  NVARCHAR(50)     NULL,
+    [PrimerNombre]     NVARCHAR(50)     NULL,
+    [SegundoNombre]    NVARCHAR(50)     NULL,
+    [PrimerApellido]   NVARCHAR(50)     NULL,
+    [SegundoApellido]  NVARCHAR(50)     NULL,
+    [FechaNacimiento]  NVARCHAR(50)     NULL,
+    [Edad]             INT              NULL,
+    [Sexo]             NVARCHAR(50)     NULL,
+    [Telefono]         NVARCHAR(50)     NULL,
+    [Email]            NVARCHAR(150)    NULL,
+    [Departamento]     NVARCHAR(50)     NULL,
+    [Municipio]        NVARCHAR(50)     NULL,
+    [NivelEducativo]   NVARCHAR(50)     NULL,
+    [SituacionLaboral] NVARCHAR(50)     NULL,
+    [Ocupacion]        NVARCHAR(50)     NULL,
+    [PersonasACargo]   TINYINT          NULL,
+    [TamanoHogar]      TINYINT          NULL,
+    [MonthlyIncome]    NVARCHAR(50)     NULL,
+    [MonthlyExpenses]  NVARCHAR(50)     NULL,
+    [FechaEncuesta]    NVARCHAR(50)     NULL,
+    [TipoVivienda]     NVARCHAR(50)     NULL,
+    [Estrato]          TINYINT          NULL
+);
+*/
+
+-- ============================================================
+-- PASO 3: Ajustes realizados durante la importación
+-- ============================================================
+-- En la pantalla "Modificar columnas" del asistente se ajustó:
+-- 
+--   Columna            Tipo final         Motivo
+--   --------           ----------         ------
+--   SourceRowId        INT                Identificador numérico
+--   Edad               INT                Edades hasta 86
+--   Telefono           NVARCHAR(50)       Conserva ceros iniciales
+--   Email              NVARCHAR(150)      Emails largos
+--   MonthlyIncome      NVARCHAR(50)       Viene con $, comas, texto
+--   MonthlyExpenses    NVARCHAR(50)       Viene con $, comas, texto
+--   SegundoNombre      Permitir NULL      Puede venir vacío
+--   SegundoApellido    Permitir NULL      Puede venir vacío
+--   NivelEducativo     Permitir NULL      Puede venir vacío
+--   SituacionLaboral   Permitir NULL      Puede venir vacío
+
+-- ============================================================
+-- PASO 4: Verificación
+-- ============================================================
+USE ETL_Encuesta;
+GO
+
+SELECT COUNT(*) AS TotalRegistros FROM stg_Datos;
+GO
+
+SELECT TOP 5 * FROM stg_Datos;
+GO
+
+-- ============================================================
+-- ALTERNATIVA PROGRAMÁTICA (si el CSV ya existe en disco)
+-- ============================================================
+-- Si en el futuro necesitas recrear la tabla desde cero con
+-- BULK INSERT, puedes usar este bloque (requiere que el CSV 
+-- esté accesible):
+
+/*
+USE ETL_Encuesta;
+GO
+
+IF OBJECT_ID('dbo.stg_Datos', 'U') IS NOT NULL 
+    DROP TABLE dbo.stg_Datos;
+GO
+
+CREATE TABLE stg_Datos (
+    SourceRowId        INT,
+    TipoDocumento      VARCHAR(50),
+    NumeroDocumento    VARCHAR(50),
+    PrimerNombre       VARCHAR(100),
+    SegundoNombre      VARCHAR(100),
+    PrimerApellido     VARCHAR(100),
+    SegundoApellido    VARCHAR(100),
+    FechaNacimiento    VARCHAR(20),
+    Edad               VARCHAR(10),
+    Sexo               VARCHAR(5),
+    Telefono           VARCHAR(20),
+    Email              VARCHAR(150),
+    Departamento       VARCHAR(20),
+    Municipio          VARCHAR(20),
+    NivelEducativo     VARCHAR(50),
+    SituacionLaboral   VARCHAR(50),
+    Ocupacion          VARCHAR(100),
+    PersonasACargo     VARCHAR(10),
+    TamanoHogar        VARCHAR(10),
+    MonthlyIncome      VARCHAR(50),
+    MonthlyExpenses    VARCHAR(50),
+    FechaEncuesta      VARCHAR(20),
+    TipoVivienda       VARCHAR(50),
+    Estrato            VARCHAR(10)
+);
+GO
+
+BULK INSERT stg_Datos
+FROM 'C:\ruta\dataset_encuesta.csv'
+WITH (
+    FIRSTROW = 2,
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '\n',
+    CODEPAGE = '65001',
+    TABLOCK,
+    MAXERRORS = 500
+);
+GO
+
+SELECT COUNT(*) FROM stg_Datos;
+GO
+*/
