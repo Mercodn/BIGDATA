@@ -1,0 +1,128 @@
+-- ============================================================
+-- Archivo: 04_consultas_verificacion.sql
+-- Descripción: Consultas de verificación del proceso ETL
+--              para la Parte 1 (cursores en SQL Server).
+-- ============================================================
+
+USE ETL_Encuesta;
+GO
+
+-- ============================================================
+-- CONSULTA 1: Staging crudo (datos originales sin transformar)
+-- ============================================================
+PRINT '=== CONSULTA 1: Staging crudo ===';
+SELECT TOP 15 
+    SourceRowId, 
+    TipoDocumento, 
+    PrimerNombre, 
+    PrimerApellido,
+    MonthlyIncome, 
+    MonthlyExpenses
+FROM stg_Datos
+ORDER BY SourceRowId;
+GO
+
+-- ============================================================
+-- CONSULTA 2: Prueba de la función fn_ConvertirMoneda
+-- ============================================================
+PRINT '=== CONSULTA 2: Función fn_ConvertirMoneda ===';
+SELECT 
+    dbo.fn_ConvertirMoneda('$6.098.400,00')  AS Ejemplo1,
+    dbo.fn_ConvertirMoneda('2359700.00')     AS Ejemplo2,
+    dbo.fn_ConvertirMoneda('$ 479.700')      AS Ejemplo3,
+    dbo.fn_ConvertirMoneda('N/A')            AS Ejemplo4,
+    dbo.fn_ConvertirMoneda('sin dato')       AS Ejemplo5,
+    dbo.fn_ConvertirMoneda('-$1.994.850,75') AS Ejemplo6;
+GO
+
+-- ============================================================
+-- CONSULTA 3: Resultado final del cursor (conteos)
+-- ============================================================
+PRINT '=== CONSULTA 3: Resultado del cursor ===';
+SELECT 
+    (SELECT COUNT(*) FROM stg_Datos WHERE SourceRowId BETWEEN 1 AND 100) AS TotalProcesados,
+    (SELECT COUNT(*) FROM Aceptados)  AS Aceptados,
+    (SELECT COUNT(*) FROM Rechazados) AS Rechazados;
+GO
+
+-- ============================================================
+-- CONSULTA 4: Tabla Aceptados (resultado de transformaciones)
+-- ============================================================
+PRINT '=== CONSULTA 4: Aceptados ===';
+SELECT TOP 15 * 
+FROM Aceptados 
+ORDER BY SourceRowId;
+GO
+
+-- ============================================================
+-- CONSULTA 5: Tabla Rechazados con motivo
+-- ============================================================
+PRINT '=== CONSULTA 5: Rechazados con motivo ===';
+SELECT * 
+FROM Rechazados 
+ORDER BY SourceRowId;
+GO
+
+-- ============================================================
+-- CONSULTA 6: Conteo de rechazos por motivo
+-- ============================================================
+PRINT '=== CONSULTA 6: Conteo por motivo ===';
+SELECT Motivo, COUNT(*) AS Cantidad
+FROM Rechazados
+GROUP BY Motivo
+ORDER BY Cantidad DESC;
+GO
+
+-- ============================================================
+-- CONSULTA 7: Balances negativos aceptados
+-- Demuestra que un balance negativo NO fue motivo de rechazo
+-- ============================================================
+PRINT '=== CONSULTA 7: Balances negativos aceptados ===';
+SELECT SourceRowId, NombreCompleto, IngresoMensual, GastoMensual, BalanceMensual
+FROM Aceptados
+WHERE BalanceMensual < 0
+ORDER BY SourceRowId;
+GO
+
+-- ============================================================
+-- CONSULTA 8: Comparativa crudo vs limpio
+-- Muestra las transformaciones aplicadas por el cursor
+-- ============================================================
+PRINT '=== CONSULTA 8: Comparativa crudo vs limpio ===';
+SELECT 
+    s.SourceRowId,
+    s.TipoDocumento  AS Tipo_Crudo,
+    a.TipoDocumento  AS Tipo_Limpio,
+    s.PrimerNombre   AS Nombre_Crudo,
+    a.NombreCompleto AS Nombre_Limpio,
+    s.MonthlyIncome  AS Income_Crudo,
+    a.IngresoMensual AS Income_Limpio,
+    a.BalanceMensual AS Balance
+FROM stg_Datos s
+JOIN Aceptados a ON s.SourceRowId = a.SourceRowId
+WHERE s.SourceRowId IN (1, 2, 29, 77, 91)
+ORDER BY s.SourceRowId;
+GO
+
+PRINT 'Script 04 ejecutado correctamente.';
+GO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
